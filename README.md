@@ -1,200 +1,220 @@
 # renderdoc-skill
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that gives Claude the ability to capture, inspect, and debug GPU frames using [RenderDoc](https://renderdoc.org). Works with Vulkan, D3D11, D3D12, and OpenGL.
+一个 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 技能，让 Claude 具备使用 [RenderDoc](https://renderdoc.org) 捕获、检查、调试 GPU 帧的能力。支持 Vulkan、D3D11、D3D12、OpenGL，以及 **WebGPU（通过 Chrome 的 D3D12 后端进程注入）**。
 
-## Demo
+## 演示
 
-[![Watch the demo](https://img.youtube.com/vi/UkaXPtCWwo4/maxresdefault.jpg)](https://www.youtube.com/watch?v=UkaXPtCWwo4)
+[![观看演示](https://img.youtube.com/vi/UkaXPtCWwo4/maxresdefault.jpg)](https://www.youtube.com/watch?v=UkaXPtCWwo4)
 
-## What This Does
+## 功能
 
-This skill teaches Claude Code how to do GPU debugging. When you describe a rendering problem — broken shadows, wrong colors, missing objects, performance issues — Claude can:
+当你描述一个渲染问题——阴影错误、颜色不对、物体缺失、性能问题——Claude 可以：
 
-- **Capture GPU frames** from your application using RenderDoc's Python API
-- **Inspect pipeline state** at any draw call (shaders, blend, depth, rasterizer, bindings)
-- **Export and view render targets** as PNGs (Claude is multimodal — it can see your framebuffer)
-- **Debug shaders** line-by-line, tracing pixel/vertex/compute execution
-- **Trace pixel history** to find which draw wrote a color and why
-- **Edit and replay shaders** without recompiling your application
-- **Compare frames** side-by-side to find regressions
+- **捕获 GPU 帧**：通过 RenderDoc 的 Python API 从你的应用捕获
+- **检查管线状态**：任意 draw call 的着色器、混合、深度、光栅化、绑定
+- **导出并查看渲染目标**为 PNG（Claude 是多模态的，能“看到”你的帧缓冲）
+- **逐行调试着色器**：跟踪像素/顶点/计算着色器的执行
+- **跟踪像素历史**：找出哪个 draw 写入了某个颜色及原因
+- **编辑并重放着色器**：无需重新编译你的应用
+- **比较帧**：并排对比以发现回归
+- **捕获 WebGPU**：通过 Chrome D3D12 后端进程注入，捕获 three.js `WebGPURenderer`（如 `12_ddgi`）
 
-It works through [`rdc-cli`](https://github.com/BANANASJIM/rdc-cli), a 66-command CLI that wraps RenderDoc's Python API into shell commands that Claude Code can call.
+它通过 [`rdc-cli`](https://github.com/BANANASJIM/rdc-cli) 工作——一个把 RenderDoc Python API 包装成 shell 命令的 66 命令 CLI，供 Claude Code 调用。
 
-## Prerequisites
+## 环境要求
 
-| Requirement | Notes |
-|-------------|-------|
-| [RenderDoc](https://renderdoc.org) | Need `renderdoc.pyd` + `renderdoc.dll` (from RenderDoc install or built from source) |
-| Python 3.10+ | Must match the Python version `renderdoc.pyd` was built against |
+| 要求 | 说明 |
+|------|------|
+| [RenderDoc](https://renderdoc.org) | 需要 `renderdoc.pyd` + `renderdoc.dll`（来自 RenderDoc 安装包或自行构建） |
+| Python 3.10+ | 需与 `renderdoc.pyd` 构建所用的 Python 版本一致 |
 | [rdc-cli](https://github.com/BANANASJIM/rdc-cli) | `pip install rdc-cli` |
-| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Anthropic's CLI agent |
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Anthropic 的 CLI agent |
 
-## Installation
+## 安装
 
-### 1. Clone this repo into your project
+### 1. 克隆仓库到你的项目
 
 ```bash
-# Option A: Clone into your project directory
+# 方式 A：克隆进你的项目目录
 cd /path/to/your/project
 git clone https://github.com/rudybear/renderdoc-skill .claude/skills/renderdoc-gpu-debug
 
-# Option B: Clone standalone and copy the skill files
+# 方式 B：独立克隆后拷贝技能文件
 git clone https://github.com/rudybear/renderdoc-skill
 cp -r renderdoc-skill/.claude/skills/renderdoc-gpu-debug /path/to/your/project/.claude/skills/
 ```
 
-### 2. Install rdc-cli
+### 2. 安装 rdc-cli
 
 ```bash
 pip install rdc-cli
 ```
 
-### 3. Set up RenderDoc module path
+### 3. 设置 RenderDoc 模块路径
 
-Set `RENDERDOC_PYTHON_PATH` to the directory containing `renderdoc.pyd` and `renderdoc.dll`:
+把 `RENDERDOC_PYTHON_PATH` 指向包含 `renderdoc.pyd` 与 `renderdoc.dll` 的目录：
 
 ```bash
-# In your shell profile (.bashrc, .zshrc, etc.)
+# 在你的 shell 配置里（.bashrc、.zshrc 等）
 export RENDERDOC_PYTHON_PATH=/path/to/renderdoc/module
 ```
 
-If you installed RenderDoc from the official installer, this is typically:
-- **Windows**: `C:/Program Files/RenderDoc/`
-- **Linux**: `/usr/lib/renderdoc/` or wherever you built it
+如果你用官方安装包安装 RenderDoc，通常是：
+- **Windows**：`C:/Program Files/RenderDoc/`
+- **Linux**：`/usr/lib/renderdoc/` 或你构建的位置
 
-### 4. Register the Vulkan layer (Vulkan apps only)
+### 4. 注册 Vulkan layer（仅 Vulkan 应用）
 
-For Vulkan capture, the RenderDoc implicit layer must be registered:
+Vulkan 捕获需要注册 RenderDoc 隐式 layer：
 
-- **Windows**: Add `renderdoc.json` to `HKCU\SOFTWARE\Khronos\Vulkan\ImplicitLayers` (DWORD 0)
-- **Linux**: Copy `renderdoc.json` to `~/.local/share/vulkan/implicit_layer.d/`
+- **Windows**：把 `renderdoc.json` 加入 `HKCU\SOFTWARE\Khronos\Vulkan\ImplicitLayers`（DWORD 0）
+- **Linux**：把 `renderdoc.json` 拷贝到 `~/.local/share/vulkan/implicit_layer.d/`
 
-Also set: `export ENABLE_VULKAN_RENDERDOC_CAPTURE=1`
+同时设置：`export ENABLE_VULKAN_RENDERDOC_CAPTURE=1`
 
-### 5. Verify
+### 5. 验证
 
 ```bash
 rdc doctor
 ```
 
-All checks should pass.
+所有检查应全部通过。
 
-### 6. Customize CLAUDE.md
+### 6. 自定义 CLAUDE.md
 
-Edit the `CLAUDE.md` in this repo to fill in your project-specific paths (application executable, working directory, capture output directory). This tells Claude about your specific setup.
+编辑本仓库的 `CLAUDE.md`，填入你项目相关的路径（应用可执行文件、工作目录、捕获输出目录），告诉 Claude 你的具体环境。
 
-## MCP Server (Alternative Installation)
+## WebGPU / WebGL 捕获
 
-Instead of (or in addition to) the skill, you can use the MCP server. This registers rdc-cli as native Claude Code tools that appear in `/mcp`.
+RenderDoc **没有原生的 WebGPU 后端**——捕获 WebGPU 需要把 RenderDoc 注入到浏览器（Chrome）的 D3D12 后端；WebGL/WebGL2 则直接捕获。
 
-### 1. Install the MCP dependency
+- **WebGPU**（three.js `WebGPURenderer`，如 `12_ddgi`）：Chrome v144+（Canary）D3D12 进程注入。完整 flag 集合、Dawn 标签特性与注意事项见 [references/webgpu-capture.md](.claude/skills/renderdoc-gpu-debug/references/webgpu-capture.md)。用脚本自动化：
+
+  ```bash
+  python capture_webgpu.py --url http://localhost:5189 -o D:/renderdoc/captures/ddgi.rdc
+  ```
+
+  得到的 `.rdc` 就是一个普通的 D3D12 捕获，用常规 `rdc` 命令检查即可。具体检查方法见 [Recipe 7](.claude/skills/renderdoc-gpu-debug/references/debugging-recipes.md)。
+
+- **WebGL**（`WebGLRenderer`）：直接用 `rdc capture -- /path/to/browser`，或 RenderDoc `File > Launch Application` 捕获。
+
+详见 SKILL.md §2「WebGPU / WebGL (browser)」小节。
+
+## MCP 服务器（另一种安装方式）
+
+除了（或代替）技能，你也可以用 MCP 服务器——把 rdc-cli 注册成 Claude Code 的原生工具，出现在 `/mcp` 里。
+
+### 1. 安装 MCP 依赖
 
 ```bash
 pip install -r requirements-mcp.txt
 ```
 
-### 2. Register with Claude Code
+### 2. 注册到 Claude Code
 
 ```bash
 claude mcp add rdc-tools -- python D:/renderdoc/mcp_server/server.py
 ```
 
-### 3. Verify
+### 3. 验证
 
-In Claude Code, run `/mcp` — you should see `rdc-tools` listed with 13 tools, 2 resources, and 6 prompts.
+在 Claude Code 里运行 `/mcp`，应看到 `rdc-tools`，含 13 个工具、2 个资源、6 个 prompt。
 
-### Available tools
+### 可用工具
 
-| Tool | Commands | Purpose |
-|------|----------|---------|
-| `rdc_session` | open, close, status | Session lifecycle |
-| `rdc_overview` | info, stats, passes, count, gpus | First-look after opening |
-| `rdc_draws` | draws, draw | Draw call navigation |
-| `rdc_events` | events, event | API event listing |
-| `rdc_pipeline` | pipeline, bindings | Pipeline state inspection |
-| `rdc_shader` | shader, shaders, search, shader-map | Shader inspection |
-| `rdc_export` | rt, texture, thumbnail, mesh, buffer | Visual export (inline image + path) |
-| `rdc_pixel` | pixel, pick-pixel, debug pixel/vertex/thread | Pixel debugging |
-| `rdc_diff` | diff | Frame comparison |
-| `rdc_resources` | resources, resource, usage, tex-stats | Resource inspection |
-| `rdc_shader_edit` | shader-build/replace/restore/encodings | Edit-replay |
-| `rdc_capture` | capture, attach, trigger, list, copy | Frame capture |
-| `rdc_vfs` | ls, tree, cat | Virtual filesystem |
-| `rdc_command` | any rdc command | Generic fallback |
+| 工具 | 命令 | 用途 |
+|------|------|------|
+| `rdc_session` | open, close, status | 会话生命周期 |
+| `rdc_overview` | info, stats, passes, count, gpus | 打开后的初步概览 |
+| `rdc_draws` | draws, draw | draw call 导航 |
+| `rdc_events` | events, event | API 事件列表 |
+| `rdc_pipeline` | pipeline, bindings | 管线状态检查 |
+| `rdc_shader` | shader, shaders, search, shader-map | 着色器检查 |
+| `rdc_export` | rt, texture, thumbnail, mesh, buffer | 可视化导出（内联图片 + 路径） |
+| `rdc_pixel` | pixel, pick-pixel, debug pixel/vertex/thread | 像素调试 |
+| `rdc_diff` | diff | 帧比较 |
+| `rdc_resources` | resources, resource, usage, tex-stats | 资源检查 |
+| `rdc_shader_edit` | shader-build/replace/restore/encodings | 编辑-重放 |
+| `rdc_capture` | capture, attach, trigger, list, copy | 帧捕获 |
+| `rdc_vfs` | ls, tree, cat | 虚拟文件系统 |
+| `rdc_command` | 任意 rdc 命令 | 通用兜底 |
 
-## How It Works
+## 工作原理
 
-### Skill trigger
+### 技能触发
 
-Claude Code loads skills based on YAML frontmatter keywords. When you mention GPU debugging, RenderDoc, shaders, render targets, pipeline state, or visual glitches, Claude activates this skill and gains access to the full `rdc-cli` command vocabulary.
+Claude Code 基于 YAML frontmatter 关键词加载技能。当你提到 GPU 调试、RenderDoc、着色器、渲染目标、管线状态、视觉故障、WebGPU、WebGL、Chrome、Dawn、three.js 等，Claude 就会激活本技能并获得完整的 `rdc-cli` 命令词汇表。
 
-### Session lifecycle
+### 会话生命周期
 
-Every inspection session follows open-work-close:
+每个检查会话遵循 open-work-close：
 
 ```bash
-rdc open path/to/capture.rdc   # Load a capture
-# ... inspection commands ...
-rdc close                       # Release GPU resources
+rdc open path/to/capture.rdc   # 加载捕获
+# ... 检查命令 ...
+rdc close                       # 释放 GPU 资源
 ```
 
-### Visual inspection pattern
+### 可视化检查模式
 
-Claude can see images. The core debugging loop is:
+Claude 能看图片。核心调试循环是：
 
-1. **Export** a render target or texture to PNG (`rdc rt EID -o output.png`)
-2. **View** it using Claude Code's Read tool (multimodal — Claude sees the image)
-3. **Correlate** with pipeline state data (`rdc pipeline`, `rdc shader`, `rdc bindings`)
-4. **Diagnose** the issue and suggest fixes
+1. **导出**渲染目标或纹理为 PNG（`rdc rt EID -o output.png`）
+2. **查看**：用 Claude Code 的 Read 工具查看（多模态——Claude 能看到图像）
+3. **关联**：与管线状态数据关联（`rdc pipeline`、`rdc shader`、`rdc bindings`）
+4. **诊断**：定位问题并给出修复建议
 
-### Included debugging recipes
+### 内置调试 recipe
 
-The skill includes 6 ready-made debugging workflows:
+本技能包含 7 个现成的调试工作流：
 
-1. **Object is invisible** — culling, depth, blend, vertex transform checks
-2. **Colors are wrong** — texture bindings, constants, blend state, shader trace
-3. **Shadows are broken** — shadow map export, depth bias, light matrices, PCF
-4. **Performance is bad** — draw counts, resource sizes, overdraw, GPU counters
-5. **What changed between frames** — frame diff with visual comparison
-6. **Debug this pixel** — pixel history, shader trace, variable inspection
+1. **物体不可见** — 裁剪、深度、混合、顶点变换检查
+2. **颜色不对** — 纹理绑定、常量、混合状态、着色器跟踪
+3. **阴影有问题** — shadow map 导出、深度偏移、光照矩阵、PCF
+4. **性能差** — draw 数量、资源大小、过度绘制、GPU 计数器
+5. **两帧之间发生了什么变化** — 帧 diff + 可视化对比
+6. **调试这个像素** — 像素历史、着色器跟踪、变量检查
+7. **WebGPU DDGI 探针（12_ddgi）** — Chrome D3D12 捕获、blend dispatch、探针 atlas、`ddgi_rayData` 缓冲区
 
-## File Structure
+## 文件结构
 
 ```
 .claude/skills/renderdoc-gpu-debug/
-  SKILL.md                          # Main skill (loaded by Claude Code)
+  SKILL.md                          # 主技能（由 Claude Code 加载）
   references/
-    commands-quick-ref.md           # All 66 rdc-cli commands with args/options
-    debugging-recipes.md            # 7 extended debugging workflows
+    commands-quick-ref.md           # 全部 66 个 rdc-cli 命令及参数/选项
+    debugging-recipes.md            # 7 个扩展调试工作流（含 12_ddgi）
+    webgpu-capture.md               # WebGPU（Chrome D3D12）捕获流程与注意事项
 
-CLAUDE.md                           # Project context (customize for your app)
-capture_frame.py                    # Example: capture a frame via RenderDoc Python API
+CLAUDE.md                           # 项目上下文（按需自定义）
+capture_frame.py                    # 示例：通过 RenderDoc Python API 捕获一帧
+capture_webgpu.py                   # 示例：注入 Chrome GPU 进程捕获 WebGPU
 ```
 
-## Example Usage
+## 使用示例
 
-Once installed, just talk to Claude Code naturally:
+安装后，直接用自然语言和 Claude Code 对话即可：
 
 ```
-> The shadows in my scene look blocky and have acne artifacts. Can you debug it?
+> 我场景里的阴影有块状和 acne 伪影，能帮我调试吗？
 
-> Capture a frame and show me what the shadow map looks like.
+> 捕获一帧，让我看看 shadow map 长什么样。
 
-> Why is the sphere rendering black? It should be red.
+> 为什么这个球体渲染成黑色？它应该是红色的。
 
-> Compare these two captures and tell me what changed.
+> 比较这两个捕获，告诉我哪里变了。
 
-> Debug pixel (256, 300) — why is it transparent?
+> 调试像素 (256, 300)——为什么它是透明的？
 ```
 
-Claude will use `rdc-cli` commands, export PNGs to inspect visually, check pipeline state, and trace shader execution to diagnose the issue.
+Claude 会调用 `rdc-cli` 命令、导出 PNG 进行可视化检查、查看管线状态并跟踪着色器执行来定位问题。
 
-## Acknowledgments
+## 致谢
 
-- **[rdc-cli](https://github.com/BANANASJIM/rdc-cli)** by Jim (BANANASJIM) — the 66-command CLI that makes this skill possible. MIT license.
-- **[RenderDoc](https://renderdoc.org)** by Baldur Karlsson — the GPU debugger that powers everything underneath. MIT license.
-- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** by Anthropic — the AI coding agent that runs the skill.
+- **[rdc-cli](https://github.com/BANANASJIM/rdc-cli)** by Jim (BANANASJIM) — 让本技能成为可能的 66 命令 CLI。MIT 许可证。
+- **[RenderDoc](https://renderdoc.org)** by Baldur Karlsson — 底层 GPU 调试器。MIT 许可证。
+- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** by Anthropic — 运行本技能的 AI 编码 agent。
 
-## License
+## 许可证
 
-MIT. See [LICENSE](LICENSE).
+MIT。见 [LICENSE](LICENSE)。
