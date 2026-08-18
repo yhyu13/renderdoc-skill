@@ -357,3 +357,76 @@ rdc close
 - If pixel history shows `passed: false` with `failure_reason: stencil_test` — stencil mask is blocking
 - If the final color differs from shader output — blend state is modifying it
 - If no entries in pixel history — nothing is drawing to that pixel (check viewport/scissor)
+
+---
+
+## Recipe 7: 12_ddgi — WebGPU DDGI probes (Chrome D3D12 capture)
+
+**Symptoms**: The DDGI probe atlas or indirect lighting looks wrong — the 1-texel
+border ring is off, the GI is dim, or the per-probe hit data doesn't match
+`window.__ddgi.readProbeSummary()`.
+
+**Prerequisite**: capture via `capture_webgpu.py` (Chrome D3D12 process injection — see
+`references/webgpu-capture.md`). A WebGPU-on-D3D12 capture is a **plain D3D12 capture**,
+so the standard `rdc` inspect commands apply. Each frame is roughly **3 compute
+dispatches** (trace → blend → border) then **1–2 draws** (lambert scene + atlas overlay).
+With Dawn labels enabled, dispatches are named by three.js `.setName()` calls.
+
+### Step-by-step
+
+```bash
+rdc open D:/renderdoc/captures/ddgi.rdc
+
+# 1. Find the blend dispatch (with labels enabled, it's named, not anonymous)
+rdc draws --limit 50
+rdc events --filter "*blend*" --json
+BLEND_EID=...   # the blend compute dispatch EID
+```
+
+**Expected shape**: the blend dispatch is a `Dispatch` event (not `DrawIndexed`) writing
+into two `StorageTexture` atlases.
+
+```bash
+# 2. View the two StorageTexture atlases (irradiance 8×8/probe, distance 18×18/probe)
+rdc bindings $BLEND_EID --json
+# Find the atlas resource IDs, then export them:
+rdc texture IRRADIANCE_RESID -o D:/renderdoc/captures/analysis/ddgi_irradiance.png
+rdc texture DISTANCE_RESID   -o D:/renderdoc/captures/analysis/ddgi_distance.png
+# View both with the Read tool.
+```
+
+**Confirm** the 1-texel border ring vs. interior on the irradiance atlas — the border
+ring should read clearly separated from the interior probe values.
+
+```bash
+# 3. Read the ddgi_rayData buffer (per-(probe·ray) hit distance / emissive)
+rdc resources --name ddgi_rayData --json
+rdc buffer RAYDATA_RESID -o D:/renderdoc/captures/analysis/ddgi_rayData.bin
+```
+
+**Cross-check** the read-back values against `window.__ddgi.readProbeSummary()` in the
+browser console. Mismatch = the capture is showing a stale or wrong dispatch.
+
+```bash
+# 4. Step through the Chebyshev reject branch in the trace/blend shader source
+rdc shader $BLEND_EID cs --source        # HLSL (Dawn lowered WGSL→HLSL)
+rdc shader $BLEND_EID cs --constants --json
+# Debug a specific compute thread if needed:
+rdc debug thread $BLEND_EID GX GY GZ TX TY TZ --json
+
+rdc close
+```
+
+### Interpretation
+
+| Symptom | Likely cause | Check |
+|---------|-------------|-------|
+| Border ring wrong | 1-texel border not written/read as expected | atlas PNGs |
+| Dim / no GI | ray data zeroed or trace dispatch not run first | `ddgi_rayData` buffer |
+| Atlas values stale | looking at trace, not blend, dispatch | `rdc events --filter "*blend*"` |
+| Can't find named resources | Dawn label feature off | re-capture with full `DAWN_FEATURES` |
+
+**When to use RenderDoc vs. in-repo hooks**: use RenderDoc to *see exactly what a
+texture/buffer holds at a given dispatch* (e.g. "is the atlas border correct?"). For
+"is my GI correct / why dim or slow", the in-repo `window.__ddgi.readProbeSummary()` +
+probe gizmos and the `threejs-debug-profiler` skill iterate faster.

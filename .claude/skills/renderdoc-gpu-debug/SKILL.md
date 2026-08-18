@@ -8,9 +8,11 @@ description: >
   pixel shader, compute shader, mesh output, GPU performance, overdraw, bandwidth, shadow map,
   PCF filtering, screen-space artifacts, z-fighting, alpha blending, stencil, MSAA,
   "why does this look wrong", "debug this pixel", "what's drawing here", "capture a frame",
-  "inspect the pipeline", "export render target", vulkan debugging, D3D debugging, GL debugging.
+  "inspect the pipeline", "export render target", vulkan debugging, D3D debugging, GL debugging,
+  WebGPU debugging, WebGL debugging, Chrome GPU capture, Dawn, three.js rendering, WGSL debugging.
   DO NOT use for: CSS rendering, React rendering, server-side rendering, HTML layout,
-  browser DevTools, web performance, canvas 2D, SVG rendering.
+  canvas 2D, SVG rendering, browser DevTools UI inspection, web page performance.
+  (WebGPU/WebGL running in a browser IS in scope — see "WebGPU / WebGL (browser)" in §2.)
 ---
 
 # RenderDoc GPU Debugging Skill
@@ -61,6 +63,22 @@ Key options:
 - `--api-validation`: Enable API validation layer
 - `--ref-all-resources`: Reference all resources (larger capture, more complete)
 - `--wait-for-exit`: Wait for the app to exit after capture
+
+### WebGPU / WebGL (browser)
+
+RenderDoc has **no native WebGPU backend** — capture WebGPU by hooking the browser's
+D3D12 backend via Chrome process injection; WebGL/WebGL2 capture directly.
+
+- **WebGPU (three.js `WebGPURenderer`, e.g. `12_ddgi`)** — Chrome v144+ (Canary) D3D12
+  process injection. See [references/webgpu-capture.md](references/webgpu-capture.md)
+  for the full flag set, Dawn labels, and caveats. Automate with:
+  ```bash
+  python capture_webgpu.py --url http://localhost:5189 -o D:/renderdoc/captures/ddgi.rdc
+  ```
+  The resulting `.rdc` is a plain D3D12 capture — inspect it with the normal `rdc`
+  commands. See `Recipe 7` in [references/debugging-recipes.md](references/debugging-recipes.md).
+- **WebGL (`WebGLRenderer`)** — capture directly with `rdc capture -- /path/to/browser`,
+  or RenderDoc `File > Launch Application`.
 
 ### CWD matters
 

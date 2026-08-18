@@ -165,7 +165,7 @@ The skill includes 6 ready-made debugging workflows:
   SKILL.md                          # Main skill (loaded by Claude Code)
   references/
     commands-quick-ref.md           # All 66 rdc-cli commands with args/options
-    debugging-recipes.md            # 6 extended debugging workflows
+    debugging-recipes.md            # 7 extended debugging workflows
 
 CLAUDE.md                           # Project context (customize for your app)
 capture_frame.py                    # Example: capture a frame via RenderDoc Python API
