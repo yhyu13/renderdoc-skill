@@ -77,8 +77,11 @@ D3D12 backend via Chrome process injection; WebGL/WebGL2 capture directly.
   ```
   The resulting `.rdc` is a plain D3D12 capture — inspect it with the normal `rdc`
   commands. See `Recipe 7` in [references/debugging-recipes.md](references/debugging-recipes.md).
-- **WebGL (`WebGLRenderer`)** — capture directly with `rdc capture -- /path/to/browser`,
-  or RenderDoc `File > Launch Application`.
+- **WebGL (`WebGLRenderer`)** — capture directly with `rdc capture --` on modern
+  Chrome using `--in-process-gpu` (the old `--gpu-startup-dialog` GPU-process
+  injection flow is broken on Chrome ≥ ~120). The capture comes out as D3D11
+  (ANGLE). See [references/webgl-chrome-capture.md](references/webgl-chrome-capture.md)
+  for the verified flag set and the rdc-cli `shlex.join` path-quoting gotcha.
 
 ### CWD matters
 

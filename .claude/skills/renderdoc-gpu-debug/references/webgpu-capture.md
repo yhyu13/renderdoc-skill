@@ -1,5 +1,13 @@
 # Capturing WebGPU (Chrome D3D12 backend)
 
+> **Regression note (2026-08-19)**: the `--gpu-startup-dialog` pause this recipe
+> relies on no longer fires on Chrome ≥ ~120 (verified broken on Chrome 151 /
+> Chromium 1234) — the GPU process initializes before you can inject, and early
+> injection kills it. For **WebGL/WebGL2** use the `--in-process-gpu` recipe in
+> [webgl-chrome-capture.md](webgl-chrome-capture.md) instead. For WebGPU the
+> dialog flow below may still work only on the specific old Canary builds it was
+> written against.
+
 > **Windows only.** Captures WebGPU by hooking the *browser's* D3D12 backend, not the
 > Dawn queue. Written for the three.js `WebGPURenderer` projects in this repo
 > (e.g. `12_ddgi`).
