@@ -58,6 +58,7 @@
 - renderdoc.pyd **1.41 API gaps**: no `GetDrawcalls`/`GetActions` (use `GetRootActions()`), no `ActionDescription.name`, usage enum is `rd.ResourceUsage` (prints as int), output descriptor attr is `.resource`, D3D11 `GetPipelineState().GetOutputTargets()` returns empty — use `GetUsage(rid)` to find write events.
 - Texture **initial contents read back as 0 bytes** — must `SetFrameEvent(<write event>, False)` before `GetTextureData`.
 - Trace JSON needs `encoding='utf-8-sig'` (BOM); rdc-cli `capture` auto-names `<name>_frame<N>.rdc`; `--frame N` counts Chrome process presents (game canvas appears ~frame 10-25).
+| "skill and RenderDocMCP should be side by side in my editor" | Added `RenderDocMCP.code-workspace` (multi-root VS Code workspace, references both repos). Pushed `f8a49d7`. |
 
 ## Final state
 
