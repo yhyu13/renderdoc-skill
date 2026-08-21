@@ -21,6 +21,8 @@ description: >
 
 This skill enables GPU frame capture, inspection, and debugging using `rdc-cli`, a 66-command CLI wrapping RenderDoc's Python API. It works with Vulkan, D3D11, D3D12, and OpenGL applications.
 
+**Humans use four windows plus Pixel History.** Match that loop. Full research: [renderdoc-human-experience.md](../../../renderdoc-human-experience.md). Agent card: [references/human-workflow.md](references/human-workflow.md).
+
 ### Prerequisites
 
 Before any GPU debugging, verify the environment:
@@ -109,6 +111,15 @@ Headless Vulkan apps (no swapchain / no `vkQueuePresentKHR`) cannot be captured 
 2. Use the Python API via `capture_frame.py` for reliable programmatic capture
 3. Use `--trigger` mode (inject without auto-capture, then `rdc capture-trigger`)
 4. Fall back to `renderdoccmd capture` directly
+
+## 2b. Capture hygiene and heisenbugs
+
+- Name resources (`SetName`) and push nested debug markers, or the Event Browser is a haystack.
+- Shader debug info: D3D `/Zi` `/Od`; Vulkan `-gVS` or `-fspv-debug=vulkan-with-source`. Unity HLSL: `#pragma enable_d3d11_debug_symbols`. Shader stepping is D3D11/D3D12/Vulkan only. Wave/quad intrinsics often disable or lie in pixel debug.
+- RenderDoc overlay changes timings and allocates extra memory. If the bug vanishes under capture, freeze the sim / disable async compute before blaming the GPU. Replay is not a perfect reproduction. Validation layers first — RenderDoc is not a validator.
+- RenderDoc = visual (pixel/mesh/binding). Nsight = desktop GPU trace/SOL. PIX = D3D12/Xbox. Do not use RenderDoc as a profiler.
+
+Unity Editor: pause, then capture. The subtree you want is `Camera.Render`. Exclude `GUI.Repaint`, `UIR.DrawChain`, `EditorLoop`.
 
 ## 3. Frame Exploration
 
@@ -331,9 +342,12 @@ rdc diff capture_a.rdc capture_b.rdc --framebuffer --diff-output D:/renderdoc/ca
 
 ## 10. Debugging Recipes
 
+Decision tree and first-tool table: [references/human-workflow.md](references/human-workflow.md). Pixel history before `--trace`. Mesh input vs output before `debug vertex`.
+
 ### Recipe: Object is invisible
 
 ```bash
+# 0. Unity: rdc draws --pass "Camera.Render" --json
 # 1. Find the draw call that should render the object
 rdc draws --json | jq '.[] | select(.name | contains("ObjectName"))'
 # or search by pass:

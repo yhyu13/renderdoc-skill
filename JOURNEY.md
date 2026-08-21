@@ -73,3 +73,19 @@
 ## Cross-repo workstreams
 
 The **`rdc_harness` verification + orchestrator core** (the gap closure for Doc3 §5, the critic rounds, the RenderDoc-side I/O wiring) landed in `RenderDocMCP/`. This repo's role is the Claude skill (`SKILL.md` + `references/`) and the WebGPU/WebGL capture scripts — the inspection guidance, not the verification engine. See `RenderDocMCP/JOURNEY.md` for the workstream.
+
+---
+
+## Human 90% toolkit (2026-08-21)
+
+> Practitioner research (Baldur Vulkanised 2018, Matias Lavik checklist, Jeremy Ong hygiene, Unity `Camera.Render` noise, FAQ heisenbugs, RD vs PIX vs Nsight). Dump: `renderdoc-human-experience.md`.
+
+| Me | You |
+|---|---|
+| "search web for renderdoc human experience, dump them to doc, then improve both repo" | Wrote `renderdoc-human-experience.md` + `references/human-workflow.md`. SKILL.md gained hygiene/heisenbug/tool-split + Unity default filter. Recipes now start from the Matias first-tool table (pixel history before `--trace`; mesh in vs out before `debug vertex`). Sibling `RenderDocMCP` got the matching MCP tools (`pick_pixel` / pixel history / mesh / resource usage / Unity preset). |
+
+### Deliverables
+
+- `renderdoc-human-experience.md` (research dump).
+- `.claude/skills/renderdoc-gpu-debug/references/human-workflow.md`.
+- SKILL.md §2b + recipe decision tree; README recipe list updated.

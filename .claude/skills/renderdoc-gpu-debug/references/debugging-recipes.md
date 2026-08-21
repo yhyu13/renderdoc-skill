@@ -2,6 +2,21 @@
 
 Extended debugging workflows with expected output shapes and lux-playground-specific examples.
 
+**Human 90% toolkit** (research dump: `renderdoc-human-experience.md`; agent card: [human-workflow.md](human-workflow.md)): Event Browser, Texture Viewer, Pipeline State, Mesh Viewer, Pixel History. Pick the *first* tool from the table below — do not start with a full draw dump or a shader `--trace`.
+
+| Symptom | First tool | Then |
+|---------|------------|------|
+| Mesh / missing faces / distorted | Mesh Viewer **input vs VS output** | If input already bad → CPU/importer. If output bad → VS constants |
+| Wrong colour | Texture Viewer + pick-pixel | UVs/normals; PS constants; blend |
+| Invisible | Event Browser (right pass) + RS/DS/OM | Pixel history at the expected pixel |
+| This pixel / speck | **Pixel history** | Last *passing* fragment, then debug that event |
+| Shadows | Shadow-pass RT + depth bias | Light matrices |
+| Slow | Markers + GPU timings (filter editor UI) | Nsight/PIX — RenderDoc is not a profiler |
+
+Unity Editor captures: start at `Camera.Render`. Exclude `GUI.Repaint` / `UIR.DrawChain` / `EditorLoop`.
+
+---
+
 ## Recipe 1: Object is Invisible
 
 **Symptoms**: An object that should be visible in the scene is not rendered.
@@ -11,6 +26,9 @@ Extended debugging workflows with expected output shapes and lux-playground-spec
 ```bash
 # 1. Open the capture
 rdc open D:/renderdoc/captures/frame.rdc
+
+# 1b. Unity Editor: only the game camera, not GUI.Repaint
+# rdc draws --pass "Camera.Render" --json --limit 50
 
 # 2. List all draws to find the expected object
 rdc draws --json --limit 50
@@ -48,6 +66,10 @@ rdc pipeline EID ds --json
 # 6. Verify the draw is issuing geometry
 rdc draw EID --json
 # Expected: VertexCount > 0, InstanceCount > 0
+
+# 6b. Mesh Viewer — input vs VS output (Matias: first tool if the *mesh* looks wrong)
+# If input vertices/indices are already degenerate (e.g. IDX 5,6,6), stop: not a shader bug.
+rdc mesh EID --json   # or, via MCP: get_mesh_data(event_id)
 
 # 7. Debug a vertex to check transform
 rdc debug vertex EID 0 --json

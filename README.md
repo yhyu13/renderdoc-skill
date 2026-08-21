@@ -166,15 +166,17 @@ Claude 能看图片。核心调试循环是：
 
 ### 内置调试 recipe
 
-本技能包含 7 个现成的调试工作流：
+本技能包含 7 个现成的调试工作流（先看症状选第一个工具，见 `renderdoc-human-experience.md`）：
 
-1. **物体不可见** — 裁剪、深度、混合、顶点变换检查
-2. **颜色不对** — 纹理绑定、常量、混合状态、着色器跟踪
+1. **物体不可见** — Event Browser 正确 pass + 光栅/深度/混合/视口；像素历史
+2. **颜色不对** — pick pixel + 纹理输入 + PS 常量 + blend
 3. **阴影有问题** — shadow map 导出、深度偏移、光照矩阵、PCF
-4. **性能差** — draw 数量、资源大小、过度绘制、GPU 计数器
+4. **性能差** — 过滤编辑器 UI 后看 timings；真正的 SOL 用 Nsight/PIX
 5. **两帧之间发生了什么变化** — 帧 diff + 可视化对比
-6. **调试这个像素** — 像素历史、着色器跟踪、变量检查
+6. **调试这个像素** — **像素历史优先**，再考虑 shader `--trace`
 7. **WebGPU DDGI 探针（12_ddgi）** — Chrome D3D12 捕获、blend dispatch、探针 atlas、`ddgi_rayData` 缓冲区
+
+几何/缺面问题：**先 Mesh Viewer 对比 VS 输入 vs 输出**。输入已经坏了就不要再查 shader。Unity Editor 捕获默认看 `Camera.Render`，丢掉 `GUI.Repaint` / `UIR.DrawChain`。
 
 ## 文件结构
 
@@ -184,7 +186,11 @@ Claude 能看图片。核心调试循环是：
   references/
     commands-quick-ref.md           # 全部 66 个 rdc-cli 命令及参数/选项
     debugging-recipes.md            # 7 个扩展调试工作流（含 12_ddgi）
+    human-workflow.md               # 人类 90% 工具箱（决策树 / Unity 过滤 / Heisenbug）
     webgpu-capture.md               # WebGPU（Chrome D3D12）捕获流程与注意事项
+    webgl-chrome-capture.md         # 已验证的 WebGL Chrome 捕获配方
+
+renderdoc-human-experience.md       # 调研原文：Baldur / Matias / Jeremy / Unity / UE / FAQ
 
 CLAUDE.md                           # 项目上下文（按需自定义）
 capture_frame.py                    # 示例：通过 RenderDoc Python API 捕获一帧
